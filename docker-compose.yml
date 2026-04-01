@@ -1,0 +1,41 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-linear}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-linear}
+      POSTGRES_DB: ${POSTGRES_DB:-linearclone}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U linear"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    ports:
+      - "${BACKEND_PORT:-3001}:3001"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-linear}:${POSTGRES_PASSWORD:-linear}@db:5432/${POSTGRES_DB:-linearclone}
+      PORT: 3001
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      VITE_API_URL: http://localhost:${BACKEND_PORT:-3001}
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
